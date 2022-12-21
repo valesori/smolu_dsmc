@@ -5,7 +5,7 @@ The codes are explained in detail in Ref. 1 and 2 (see below)
 
 Three versions of the code are provided, both of which implement a Direct Simulation Monte Carlo scheme to solve the Smoluchowski equation with fragmentation.
 
-smoluchowski_dsmc_frag.py mplements the classical Smoluchowski coagulation equation, by also taking into account the possibility of fragmentation (see Ref. 1).
+smoluchowski_dsmc_frag.py implements the classical Smoluchowski coagulation equation, by also taking into account the possibility of fragmentation (see Ref. 1).
 
 smoluchowski_dsmc_frag_entanglement.py is a modified version of smoluchowski_dsmc_frag.py, in which a multiplicative term is added to the annealing rate in order to take into account the steric effect of entanglements (see Ref. 1).
 
