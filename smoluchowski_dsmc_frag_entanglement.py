@@ -13,46 +13,45 @@
 import os, sys, time, re
 from numpy import *
 
-#Reaction rate (K_ij)
+#Annealing rate for two reacting objects with masses mi, mj and equilibrium dissociation constant K_d
+#This version of the annealing rate includes a blocking term whigh depends on density rho and on the raction angle
 def k_rate(mi,mj,rho,angle):
 	x=0.5*rho*min(mi,mj)**2
 	blocking_term=(1-(x*sin(angle)+cos(angle))*exp(-angle*x))/((1+x**2)*(1-cos(angle)))
 	return blocking_term*(1./mi+1./mj)
 
-k_max0=2 			#Initial max value of K_ij -- updated during the simulation
-Alpha=1 			#This parameter must lay between 0 and 1.
-nevery_hist=10000 	#Print histogram every this many time steps
-time_max=1e4 		#Stop the simulation when the waiting time is larger than this value.
-ntot=10000 			#Number of monomers
-K_d=1.00e-3  		#Equilibrium dissociation constant
-gamma=7.0e-3 		#Minimum angle for successful coagulation
-density=1.0 		#Monomer number density
-myseed=123 			#Seed for random number generation
+K_d=1.00e-3  			#Equilibrium dissociation constant
+k_max0=2./K_d 			#Initial max value of K_ij -- updated during the simulation
+f_max0=1. 				#Initial max value of F_ij -- updated during the simulation
+Alpha=1 				#This parameter must lay between 0 and 1
+nevery_hist=10000 		#Print histogram every this many time steps
+time_max=1e5 			#Stop the simulation when the waiting time is larger than this value
+ntot=10000 				#Number of monomers
+gamma=7.0e-6 			#Minimum angle for successful annealing
+density=1.0 			#Monomer number density
+myseed=123 				#Seed for random number generation
 
-if(K_d<0 or K_d>1):
-	print("INPUT ERROR: Parameter K_d must be in interval [0,1].")
+if(K_d<0):
+	print("INPUT ERROR: Parameter K_d must be > 0.")
 	sys.exit()
 
 if(gamma<0 or gamma>pi/2.):
 	print("INPUT ERROR: Min. bonding angle must be in interval [0,pi/2].")
 	sys.exit()
 
-#Calculate initial fmax
-f_max0=0.5*K_d*k_max0
+#Intialize k_max and f_max
+k_max=k_max0
+f_max=f_max0
 
 #Seed random generator
 random.seed(myseed)
 
-#Save initial values because we may want to check if they changed
-k_max=k_max0
-f_max=f_max0
-
-os.system("mkdir histograms_ntot%d_K_d%.2e_density%.2e_gamma%.2e"%(ntot,K_d,density,gamma))
+os.system("mkdir histograms_ntot%d_Kd%.2e_density%.2e_gamma%.2e"%(ntot,K_d,density,gamma))
 
 #The nth element of the array is the mass of molecule n; initially, only monomers are present
 masses=zeros(ntot,dtype="int32")+1 
 
-with open("mav_vs_t_ntot%d_K_d%.2e_density%.2e_gamma%.2e_tmax%.2e.dat"%(ntot,K_d,density,gamma,time_max),"w") as fout:
+with open("mav_vs_t_ntot%d_Kd%.2e_density%.2e_gamma%.2e_tmax%.2e.dat"%(ntot,K_d,density,gamma,time_max),"w") as fout:
 	waiting_time=0.
 	step=0
 	hist_count=0
@@ -65,11 +64,11 @@ with open("mav_vs_t_ntot%d_K_d%.2e_density%.2e_gamma%.2e_tmax%.2e.dat"%(ntot,K_d
 		
 		mean_mass=mean(masses[masses!=0])
 
-		#Compute coagulation probability
-		p_coag=1./(1+(ntot*n_poly*f_max)/(n_mol*(n_mol-1)*density*k_max))
+		#Compute annealing probability
+		p_ann=1./(1+(ntot*n_poly*f_max)/(n_mol*(n_mol-1)*density*k_max))
 
-		if(random.rand()<p_coag):
-			#Attempt coagulation
+		if(random.rand()<p_ann):
+			#Attempt annealing
 
 			#Randomly select 2 molecules
 			#masses[i] must be not 0 since 0 is for absence of molecule
@@ -84,8 +83,8 @@ with open("mav_vs_t_ntot%d_K_d%.2e_density%.2e_gamma%.2e_tmax%.2e.dat"%(ntot,K_d
 			mi=masses[i]
 			mj=masses[j]
 
-			#Calculate bonding rate
-			k_ij=k_rate(mi,mj,density,gamma)
+			#Calculate annealing rate
+			k_ij=k_rate(mi,mj,density,gamma)/K_d
 
 			if(k_ij>k_max): 
 				#Update max. rate estimate
@@ -93,7 +92,7 @@ with open("mav_vs_t_ntot%d_K_d%.2e_density%.2e_gamma%.2e_tmax%.2e.dat"%(ntot,K_d
 
 			else:
 				if(random.rand()<k_ij/k_max):
-					#Coagulation is performed
+					#Annealing is performed
 
 					#Increment time
 					waiting_time+=2*Alpha*ntot/(n_mol*(n_mol-1)*density*k_ij)
@@ -130,7 +129,7 @@ with open("mav_vs_t_ntot%d_K_d%.2e_density%.2e_gamma%.2e_tmax%.2e.dat"%(ntot,K_d
 				m2=mk-m1
 
 				#Calculate fragmentation rate respecting detailed balance:
-				f_m1m2=0.5*K_d*k_rate(m1,m2,density,gamma)
+				f_m1m2=0.5*k_rate(m1,m2,density,gamma)
 
 				if((mk-1)*f_m1m2>f_max): 
 					#Update max. rate estimate
@@ -167,9 +166,9 @@ with open("mav_vs_t_ntot%d_K_d%.2e_density%.2e_gamma%.2e_tmax%.2e.dat"%(ntot,K_d
 			masses_values=sort(array(list(set(masses[masses!=0]))))
 			masses_occurrences=array([list(masses).count(x) for x in masses_values])
 			hist=column_stack((masses_values,masses_occurrences))
-			savetxt('histograms_ntot%d_K_d%.2e_density%.2e_gamma%.2e/n%.10d_t%.3e'%(ntot,K_d,density,gamma,hist_count,waiting_time),hist,fmt='%d %d')		
+			savetxt('histograms_ntot%d_Kd%.2e_density%.2e_gamma%.2e/n%.10d_t%.3e'%(ntot,K_d,density,gamma,hist_count,waiting_time),hist,fmt='%d %d')		
 		hist_count+=1
 
 #Save last array so that we can resume simulation if needed
-savetxt('masses_final_ntot%d_K_d%.2e_density%.2e_gamma%.2e_t%.3e.dat'%(ntot,K_d,density,gamma,waiting_time),masses,fmt='%d')
+savetxt('masses_final_ntot%d_Kd%.2e_density%.2e_gamma%.2e_t%.3e.dat'%(ntot,K_d,density,gamma,waiting_time),masses,fmt='%d')
 

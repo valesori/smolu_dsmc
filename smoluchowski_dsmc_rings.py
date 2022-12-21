@@ -12,9 +12,9 @@ import os, sys, time, re
 from numpy import *
 
 #Global_variables
-glob_pref=float(input("Enter prefactor for ring formation rate:"))
+glob_pref=0.5 			#This prefactor can be tuned to make ring formation more or less likely
 
-#Coagulation rate K_ij
+#Annealing rate K_ij
 def k_rate(mi,mj):
 	return (sqrt(mi)+sqrt(mj))*(1./mi+1./mj) #De Gennes kernel for Gaussian chains
 
@@ -22,11 +22,11 @@ def k_rate(mi,mj):
 def r_rate(mi):
 	return glob_pref*mi**(-1.5)
 
-k_max0=4 				#Initial max value of K_ij (coagulaton rate) -- updated during the simulation
+k_max0=4 				#Initial max value of K_ij (annealing rate) -- updated during the simulation
 r_max0=glob_pref*0.5 	#Initial max value of R_i (cyclization rate) -- updated during the simulation
-Alpha=1 				#A parameter that must be between 0 and 1. 1 is the value suggested.
+Alpha=1 				#A parameter that must be between 0 and 1. 1 is the value suggested
 nevery_hist=10000 		#Print histogram every this many time steps
-time_max=1e5 			#Stop the simulation when the waiting time is larger than this value.
+time_max=1e5 			#Stop the simulation when the waiting time is larger than this value
 ntot=1000 				#Number of monomers
 density=1				#Monomer number density
 myseed=123 				#Seed for random number generation
@@ -53,11 +53,11 @@ with open("mav_vs_t_ntot%d_density%.2e_pref%.2f.dat"%(ntot,density,glob_pref),"w
 		while(waiting_time<time_max and n_chains>1):
 			step+=1
 			
-			#Compute coagulation probability
-			p_coag=1./(1+(2*ntot*r_max)/((n_chains-1)*density*k_max))
+			#Compute annealing probability
+			p_ann=1./(1+(2*ntot*r_max)/((n_chains-1)*density*k_max))
 
-			if(random.rand()<p_coag):
-				#Attempt coagulation
+			if(random.rand()<p_ann):
+				#Attempt annealing
 
 				#Randomly select 2 molecules
 				#masses[i] must be not 0 since 0 is for absence of molecule
@@ -81,7 +81,7 @@ with open("mav_vs_t_ntot%d_density%.2e_pref%.2f.dat"%(ntot,density,glob_pref),"w
 
 				else:
 					if(random.rand()<k_ij/k_max):
-						#Coagulation is performed
+						#Annealing is performed
 
 						#Increment time
 						waiting_time+=2*Alpha*ntot/(n_chains*(n_chains-1)*density*k_ij)
