@@ -27,10 +27,9 @@ r_max0=glob_pref*0.5 	#Initial max value of R_i (cyclization rate) -- updated du
 Alpha=1 				#A parameter that must be between 0 and 1. 1 is the value suggested.
 nevery_hist=10000 		#Print histogram every this many time steps
 time_max=1e5 			#Stop the simulation when the waiting time is larger than this value.
-
-ntot=int(input("Enter n. of particles:"))
-density=float(input("Enter reduced monomer density:"))
-myseed=int(input("Enter a seed for the random number generator:"))
+ntot=1000 				#Number of monomers
+density=1				#Monomer number density
+myseed=123 				#Seed for random number generation
 
 #Seed random generator
 random.seed(myseed)
@@ -103,7 +102,7 @@ with open("mav_vs_t_ntot%d_density%.2e_pref%.2f.dat"%(ntot,density,glob_pref),"w
 							mean_ring_mass=mean(rings)
 						else:
 							mean_ring_mass=0.
-							
+
 						#Print relevant quantities
 						fout_mav.write("%.4e %.4e %.4e %.4e\n"%(waiting_time,mean_mass,mean_chain_mass,mean_ring_mass))
 						fout_nchain.write("%.4e %d %d\n"%(waiting_time,n_chains,n_rings))
