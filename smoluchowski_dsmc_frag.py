@@ -85,6 +85,7 @@ with open("mav_vs_t_ntot%d_K_d%.2e_density%.2e_tmax%.2e.dat"%(ntot,K_d,density,t
 					#Increment time
 					waiting_time+=2*Alpha*ntot/(n_mol*(n_mol-1)*density*k_ij)
 
+					#Update masses array
 					masses[j]=mi+mj
 					masses[i]=0
 
@@ -100,6 +101,7 @@ with open("mav_vs_t_ntot%d_K_d%.2e_density%.2e_tmax%.2e.dat"%(ntot,K_d,density,t
 					mean_mass=mean(masses[masses!=0])
 					reac_extent=1-float(n_mol)/ntot
 
+					#Print relevant quantities
 					fout.write("%.4e %.4e %.4e\n"%(waiting_time,mean_mass,reac_extent))
 
 		else:
@@ -128,12 +130,13 @@ with open("mav_vs_t_ntot%d_K_d%.2e_density%.2e_tmax%.2e.dat"%(ntot,K_d,density,t
 						#Increment time
 						waiting_time+=2*(1-Alpha)/(n_poly*(mk-1)*f_m1m2)
 
+						#Update masses array
 						masses[k]=m1
 						masses[random.choice(where(masses==0)[0])]=m2
 
 						#Update relevant quantities
 						n_mol+=1
-
+						
 						if(m1==1 and m2==1):
 							n_poly-=1
 						elif(m1>1 and m2>1):
@@ -143,6 +146,7 @@ with open("mav_vs_t_ntot%d_K_d%.2e_density%.2e_tmax%.2e.dat"%(ntot,K_d,density,t
 						mean_mass=mean(masses[masses!=0])
 						reac_extent=1-float(n_mol)/ntot
 
+						#Print relevant quantities
 						fout.write("%.4e %.4e %.4e\n"%(waiting_time,mean_mass,reac_extent))
 
 		#Save and print histogram

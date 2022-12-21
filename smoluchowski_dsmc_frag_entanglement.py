@@ -47,7 +47,7 @@ random.seed(myseed)
 k_max=k_max0
 f_max=f_max0
 
-os.system("mK_dir histograms_ntot%d_K_d%.2e_density%.2e_gamma%.2e"%(ntot,K_d,density,gamma))
+os.system("mkdir histograms_ntot%d_K_d%.2e_density%.2e_gamma%.2e"%(ntot,K_d,density,gamma))
 
 #The nth element of the array is the mass of molecule n; initially, only monomers are present
 masses=zeros(ntot,dtype="int32")+1 
@@ -59,8 +59,6 @@ with open("mav_vs_t_ntot%d_K_d%.2e_density%.2e_gamma%.2e_tmax%.2e.dat"%(ntot,K_d
 
 	n_poly=len(masses[masses>1]) #Number of masses of size >1; mass=1 can't be fragmented
 	n_mol=len(masses[masses!=0]) #Number of molecules
-
-	mean_mass_old=0
 
 	while(waiting_time<time_max):
 		step+=1
@@ -100,13 +98,7 @@ with open("mav_vs_t_ntot%d_K_d%.2e_density%.2e_gamma%.2e_tmax%.2e.dat"%(ntot,K_d
 					#Increment time
 					waiting_time+=2*Alpha*ntot/(n_mol*(n_mol-1)*density*k_ij)
 
-					#Compute mean and max mass
-					mean_mass=mean(masses[masses!=0])
-					reac_extent=1-float(n_mol)/ntot
-
-					fout.write("%.4e %.4e\n"%(waiting_time,mean_mass))
-					mean_mass_old=mean_mass
-
+					#Update masses array
 					masses[j]=mi+mj
 					masses[i]=0
 
@@ -117,6 +109,13 @@ with open("mav_vs_t_ntot%d_K_d%.2e_density%.2e_gamma%.2e_tmax%.2e.dat"%(ntot,K_d
 						n_poly+=1
 					elif(mi>1 and mj>1):
 						n_poly-=1
+
+					#Compute mean and max mass
+					mean_mass=mean(masses[masses!=0])
+					reac_extent=1-float(n_mol)/ntot
+
+					#Print relevant quantities
+					fout.write("%.4e %.4e\n"%(waiting_time,mean_mass))
 
 		else:
 			if(n_poly>0):
@@ -144,13 +143,7 @@ with open("mav_vs_t_ntot%d_K_d%.2e_density%.2e_gamma%.2e_tmax%.2e.dat"%(ntot,K_d
 						#Increment time
 						waiting_time+=2*(1-Alpha)/(n_poly*(mk-1)*f_m1m2)
 
-						#Compute mean and max mass
-						mean_mass=mean(masses[masses!=0])
-						reac_extent=1-float(n_mol)/ntot
-
-						fout.write("%.4e %.4e\n"%(waiting_time,mean_mass))
-						mean_mass_old=mean_mass
-
+						#Update masses array
 						masses[k]=m1
 						masses[random.choice(where(masses==0)[0])]=m2
 
@@ -161,6 +154,13 @@ with open("mav_vs_t_ntot%d_K_d%.2e_density%.2e_gamma%.2e_tmax%.2e.dat"%(ntot,K_d
 							n_poly-=1
 						elif(m1>1 and m2>1):
 							n_poly+=1
+
+						#Compute mean and max mass
+						mean_mass=mean(masses[masses!=0])
+						reac_extent=1-float(n_mol)/ntot
+
+						#Print relevant quantities
+						fout.write("%.4e %.4e\n"%(waiting_time,mean_mass))
 
 		#Save and print histogram
 		if(hist_count%nevery_hist==0):
