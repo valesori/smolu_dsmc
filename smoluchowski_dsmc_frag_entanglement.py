@@ -25,8 +25,8 @@ nevery_hist=10000 	#Print histogram every this many time steps
 time_max=1e4 		#Stop the simulation when the waiting time is larger than this value.
 ntot=10000 			#Number of monomers
 K_d=1.00e-3  		#Equilibrium dissociation constant
-gamma=7.0e-6 		#Blocking parameter, see Ref.1
-density=0.1 		#Monomer number density
+gamma=7.0e-3 		#Minimum angle for successful coagulation
+density=1.0 		#Monomer number density
 myseed=123 			#Seed for random number generation
 
 if(K_d<0 or K_d>1):
