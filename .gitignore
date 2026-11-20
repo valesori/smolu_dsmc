@@ -1,0 +1,9 @@
+__pycache__/
+*.egg-info/
+.pytest_cache/
+build/
+# Simulation output
+histograms_*/
+mav_vs_t_*.dat
+masses_final_*.dat
+nchain_rings_*.dat

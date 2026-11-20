@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "smolu-dsmc"
+version = "1.0.0"
+description = "Direct Simulation Monte Carlo of Smoluchowski equations with fragmentation, entanglement and ring formation"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Valerio Sorichetti" }]
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24"]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.scripts]
+smolu-dsmc = "smolu_dsmc.cli:main"
+
+[tool.setuptools]
+packages = ["smolu_dsmc"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "NPY"]
