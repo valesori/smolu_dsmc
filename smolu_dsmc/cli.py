@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from collections.abc import Sequence
 
 from . import fragmentation, fragmentation_gillespie, rings
 from .output import FragmentationWriter, RingsWriter
+from .provenance import RunRecord
+from .recording import log_time_grid
 
 
 def _add_common(parser: argparse.ArgumentParser, ntot: int) -> None:
@@ -56,7 +59,23 @@ def build_parser() -> argparse.ArgumentParser:
         "--hist-every",
         type=int,
         default=10_000,
-        help="write a mass histogram every this many MC steps (default: %(default)s)",
+        help="write a mass histogram every this many MC steps; not used with --n-points "
+        "(default: %(default)s)",
+    )
+    frag.add_argument(
+        "--n-points",
+        type=int,
+        default=None,
+        help="record the time series and the histograms at this many log-spaced times "
+        "from --t-min to --time-max, instead of after every event and every "
+        "--hist-every steps",
+    )
+    frag.add_argument(
+        "--t-min",
+        type=float,
+        default=None,
+        help="first time of the --n-points grid (default: 0.01 * kd / density, about 1%% of "
+        "the time over which the mean length doubles at the start)",
     )
     frag.add_argument(
         "--method",
@@ -95,14 +114,46 @@ def run_fragmentation(args: argparse.Namespace) -> None:
     gillespie = args.method == "gillespie"
     simulate = fragmentation_gillespie.simulate_gillespie if gillespie else fragmentation.simulate
     suffix = "_gillespie" if gillespie else ""
-    with FragmentationWriter(params, args.outdir, suffix=suffix) as writer:
-        result = simulate(
-            params,
-            on_event=writer.on_event,
-            on_snapshot=writer.on_snapshot,
-            snapshot_every=args.hist_every,
-        )
-    writer.write_final(result.time, result.population)
+
+    if args.n_points is not None:
+        t_min = args.t_min if args.t_min is not None else 0.01 * params.kd / params.density
+        grid = log_time_grid(t_min, params.time_max, args.n_points)
+        recording = {"mode": "time_grid", "n_points": args.n_points, "t_min": t_min}
+    else:
+        grid = None
+        recording = {"mode": "every_event", "hist_every_steps": args.hist_every}
+
+    writer = FragmentationWriter(params, args.outdir, suffix=suffix)
+    record = RunRecord(
+        writer.run_record_path,
+        model="fragmentation",
+        method="gillespie" if gillespie else "dsmc (Ref. 1, Appendix B)",
+        params=params,
+        recording=recording,
+        argv=args.command_line,
+    )
+    record.start()
+    try:
+        with writer:
+            if grid is None:
+                result = simulate(
+                    params,
+                    on_event=writer.on_event,
+                    on_snapshot=writer.on_snapshot,
+                    snapshot_every=args.hist_every,
+                )
+            else:
+                result = simulate(params, record_times=grid, on_record=writer.on_record)
+        final_path = writer.write_final(result.time, result.population)
+    except BaseException as err:
+        record.finish("failed", error=repr(err))
+        raise
+    record.finish(
+        final_time=result.time,
+        steps=result.steps,
+        n_molecules=result.population.n,
+        outputs=[p.name for p in (writer.timeseries_path, writer.hist_dir, final_path)],
+    )
 
 
 def run_rings(args: argparse.Namespace) -> None:
@@ -114,13 +165,37 @@ def run_rings(args: argparse.Namespace) -> None:
         time_max=args.time_max,
         seed=args.seed,
     )
-    with RingsWriter(params, args.outdir, verbose=args.verbose) as writer:
-        rings.simulate(params, on_event=writer.on_event)
+    writer = RingsWriter(params, args.outdir, verbose=args.verbose)
+    record = RunRecord(
+        writer.run_record_path,
+        model="rings",
+        method="dsmc",
+        params=params,
+        recording={"mode": "every_event"},
+        argv=args.command_line,
+    )
+    record.start()
+    try:
+        with writer:
+            result = rings.simulate(params, on_event=writer.on_event)
+    except BaseException as err:
+        record.finish("failed", error=repr(err))
+        raise
+    record.finish(
+        final_time=result.time,
+        steps=result.steps,
+        n_chains=result.state.n_chains,
+        n_rings=result.state.n_rings,
+        outputs=[writer.mav_path.name, writer.counts_path.name],
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
+    # Recorded in the run record: the actual command line, or the arguments
+    # passed to main() when called from Python.
+    args.command_line = list(sys.argv) if argv is None else ["smolu-dsmc", *argv]
     try:
         if args.model == "frag":
             run_fragmentation(args)

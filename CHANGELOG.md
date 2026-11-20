@@ -11,6 +11,24 @@
   the published results**. It avoids most rejected attempts and is 6–14 times
   faster for `ntot = 1e5`. Output files carry a `_gillespie` suffix; the
   default method is still the paper's DSMC.
+- `--n-points` and `--t-min` (fragmentation): record the time series and the
+  histograms at log-spaced times instead of after every event, which keeps
+  output files small and makes histograms comparable between runs and
+  algorithms. Library: `record_times` and `on_record` arguments of both
+  `simulate` functions (`smolu_dsmc.recording`).
+- Run records: every run writes `run_<tag>….json` with its parameters, seed,
+  algorithm, code version and git commit, environment and outputs
+  (`smolu_dsmc.provenance`).
+- `scripts/validate_gillespie.py`, which reproduces the comparison of the
+  Gillespie and DSMC algorithms reported in the README.
+
+### Changed
+
+- README: the dimensionless units used by the code (c₀b³ = 1), how they map
+  onto Refs. 1 and 2, and how the `gamma` of the code relates to the bare
+  angle (γ_code = γ c₀b³; about 0.5° for the fit of Ref. 1).
+- Package docstring and description cover both algorithms and cite the
+  published versions of Refs. 1 and 2.
 
 ## [1.0.0] - unreleased
 

@@ -73,13 +73,14 @@ accepted.
 from __future__ import annotations
 
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 import numpy as np
 
 from .fragmentation import FragmentationParams, FragmentationResult
 from .kernels import blocking_factor
 from .population import UniformStream
+from .recording import RecordCallback, TimeGrid
 
 _EULER_GAMMA = 0.5772156649015329
 _RECOMPUTE_EVERY = 1 << 16  # Events between full recomputations of the bounds
@@ -266,12 +267,16 @@ def simulate_gillespie(
     on_event: EventCallback | None = None,
     on_snapshot: SnapshotCallback | None = None,
     snapshot_every: int = 10_000,
+    record_times: Sequence[float] | None = None,
+    on_record: RecordCallback | None = None,
 ) -> FragmentationResult:
     """Gillespie alternative to the DSMC of :func:`smolu_dsmc.fragmentation.simulate`.
 
     NOT the algorithm used in Ref. 1 (see the module docstring for the method
     and references); it samples the same dynamics, faster. ``params.alpha``
-    is ignored. ``masses`` defaults to ``params.ntot`` monomers.
+    is ignored. ``masses`` defaults to ``params.ntot`` monomers. The callbacks
+    are those of :func:`smolu_dsmc.fragmentation.simulate`; here a "step" is
+    one proposal.
     """
     if masses is None:
         masses = [1] * params.ntot
@@ -284,6 +289,9 @@ def simulate_gillespie(
     density, kd, gamma = params.density, params.kd, params.gamma
     # Annealing rate per unordered pair is K_ab / V, with V = ntot / density.
     anneal_prefactor = density / (ntot * kd)
+
+    grid = TimeGrid(record_times, on_record) if on_record and record_times is not None else None
+    next_record = grid.next_time if grid else math.inf
 
     time = 0.0
     step = 0
@@ -300,6 +308,8 @@ def simulate_gillespie(
         if total <= 0.0:
             break  # A single monomer: nothing can happen.
         time += -math.log(1.0 - uniform()) / total
+        if time > next_record:
+            next_record = grid.record_until(time, pop)
         if time >= params.time_max:
             break
 
@@ -337,4 +347,6 @@ def simulate_gillespie(
         if on_event is not None:
             on_event(time, pop)
 
+    if grid is not None:
+        grid.record_remaining(pop)
     return FragmentationResult(pop, time, step)

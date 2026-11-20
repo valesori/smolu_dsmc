@@ -26,11 +26,16 @@ def rings_tag(params: RingsParams) -> str:
 class FragmentationWriter:
     """Writes the files of a fragmentation run into ``outdir``.
 
-    - ``mav_vs_t_<tag>_tmax<time_max>.dat``: after each event, the waiting
-      time, the mean mass and the extent of reaction ``1 - n / ntot``.
-    - ``histograms_<tag>/n<step>_t<time>``: mass histograms (mass, count).
+    - ``mav_vs_t_<tag>_tmax<time_max>.dat``: the waiting time, the mean mass
+      and the extent of reaction ``1 - n / ntot``, either after each event
+      (:meth:`on_event`) or at the times of a grid (:meth:`on_record`).
+    - ``histograms_<tag>/n<index>_t<time>``: mass histograms (mass, count),
+      where ``<index>`` is the Monte Carlo step (:meth:`on_snapshot`) or the
+      index of the grid time (:meth:`on_record`).
     - ``masses_final_<tag>_t<time>.dat``: final masses, padded with zeros to
       ``ntot`` entries as in the original scripts.
+    - ``run_<tag>_tmax<time_max>.json``: the run record, written by the CLI
+      (:mod:`smolu_dsmc.provenance`).
 
     ``suffix`` is appended to ``<tag>``; the CLI uses ``_gillespie`` for runs of
     :mod:`smolu_dsmc.fragmentation_gillespie`, so that they are not mistaken for
@@ -45,6 +50,7 @@ class FragmentationWriter:
         self.hist_dir = self.outdir / f"histograms_{tag}"
         self.hist_dir.mkdir(parents=True, exist_ok=True)
         self.timeseries_path = self.outdir / f"mav_vs_t_{tag}_tmax{params.time_max:.2e}.dat"
+        self.run_record_path = self.outdir / f"run_{tag}_tmax{params.time_max:.2e}.json"
         self._fout: TextIO | None = None
 
     def __enter__(self) -> FragmentationWriter:
@@ -65,6 +71,11 @@ class FragmentationWriter:
     def on_snapshot(self, step: int, time: float, pop: Population) -> None:
         path = self.hist_dir / f"n{step:010d}_t{time:.3e}"
         np.savetxt(path, pop.histogram(), fmt="%d %d")
+
+    def on_record(self, index: int, time: float, pop: Population) -> None:
+        """Time-series line and histogram at the grid time ``time``."""
+        self.on_event(time, pop)
+        self.on_snapshot(index, time, pop)
 
     def write_final(self, time: float, pop: Population) -> Path:
         masses = np.zeros(self.params.ntot, dtype=np.int64)
@@ -88,6 +99,7 @@ class RingsWriter:
         tag = rings_tag(params)
         self.mav_path = self.outdir / f"mav_vs_t_{tag}.dat"
         self.counts_path = self.outdir / f"nchain_rings_{tag}.dat"
+        self.run_record_path = self.outdir / f"run_{tag}.json"
         self.verbose = verbose
         self._mav: TextIO | None = None
         self._counts: TextIO | None = None

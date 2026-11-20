@@ -12,7 +12,7 @@ correct kinetics on average for any ``0 <= alpha <= 1``.
 from __future__ import annotations
 
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from functools import partial
 
@@ -20,6 +20,7 @@ import numpy as np
 
 from .kernels import entangled_kernel, rouse_kernel
 from .population import Population, UniformStream
+from .recording import RecordCallback, TimeGrid
 
 Kernel = Callable[[int, int], float]
 
@@ -78,10 +79,19 @@ def simulate(
     on_event: EventCallback | None = None,
     on_snapshot: SnapshotCallback | None = None,
     snapshot_every: int = 10_000,
+    record_times: Sequence[float] | None = None,
+    on_record: RecordCallback | None = None,
 ) -> FragmentationResult:
     """Run the simulation until the waiting time exceeds ``params.time_max``.
 
-    ``population`` defaults to ``params.ntot`` monomers.
+    ``population`` defaults to ``params.ntot`` monomers. Three optional ways
+    to observe the run:
+
+    - ``on_event(time, population)`` after each accepted event;
+    - ``on_snapshot(step, time, population)`` every ``snapshot_every`` Monte
+      Carlo steps;
+    - ``on_record(index, t, population)`` with the state at each time ``t`` of
+      ``record_times`` (see :mod:`smolu_dsmc.recording`).
     """
     pop = population if population is not None else Population.monomers(params.ntot)
     ntot = pop.total_mass
@@ -96,6 +106,9 @@ def simulate(
     # k_max is the exact maximum of K_ij; f_max that of (k - 1) F_{i,k-i} for k = 2.
     k_max = kernel(1, 1) / kd
     f_max = 0.5 * kernel(1, 1)
+
+    grid = TimeGrid(record_times, on_record) if on_record and record_times is not None else None
+    next_record = grid.next_time if grid else math.inf
 
     time = 0.0
     step = 0
@@ -119,6 +132,8 @@ def simulate(
                 k_max = k_ij  # Raise the estimate and discard the attempt (Ref. 1, App. B).
             elif uniform() * k_max < k_ij:
                 time += 2.0 * alpha * ntot / (n * (n - 1) * density * k_ij)
+                if time > next_record:
+                    next_record = grid.record_until(time, pop)
                 pop.merge(i, j)
                 if on_event is not None:
                     on_event(time, pop)
@@ -134,8 +149,12 @@ def simulate(
                 f_max = f_tot
             elif uniform() * f_max < f_tot:
                 time += 2.0 * (1.0 - alpha) / (n_poly * f_tot)
+                if time > next_record:
+                    next_record = grid.record_until(time, pop)
                 pop.split(pos, m1, m2)
                 if on_event is not None:
                     on_event(time, pop)
 
+    if grid is not None:
+        grid.record_remaining(pop)
     return FragmentationResult(pop, time, step, k_max, f_max)
