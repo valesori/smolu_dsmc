@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- `smolu_dsmc.fragmentation_gillespie` and `smolu-dsmc frag --method gillespie`:
+  Gillespie's stochastic simulation algorithm with thinning and
+  composition-rejection sampling (references in the README), which samples
+  the same dynamics as the DSMC of Ref. 1 but is **not the algorithm used for
+  the published results**. It avoids most rejected attempts and is 6–14 times
+  faster for `ntot = 1e5`. Output files carry a `_gillespie` suffix; the
+  default method is still the paper's DSMC.
+
 ## [1.0.0] - unreleased
 
 Refactoring of the original 2022 scripts into the `smolu_dsmc` package. The

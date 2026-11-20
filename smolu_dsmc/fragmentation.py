@@ -60,8 +60,9 @@ class FragmentationResult:
     population: Population
     time: float
     steps: int
-    k_max: float
-    f_max: float
+    # Final estimates of the maximum rates (Appendix B algorithm only).
+    k_max: float | None = None
+    f_max: float | None = None
 
 
 # Called after each accepted event with (time, population).

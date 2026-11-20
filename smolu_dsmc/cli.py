@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from collections.abc import Sequence
 
-from . import fragmentation, rings
+from . import fragmentation, fragmentation_gillespie, rings
 from .output import FragmentationWriter, RingsWriter
 
 
@@ -58,6 +58,15 @@ def build_parser() -> argparse.ArgumentParser:
         default=10_000,
         help="write a mass histogram every this many MC steps (default: %(default)s)",
     )
+    frag.add_argument(
+        "--method",
+        choices=["paper", "gillespie"],
+        default="paper",
+        help="'paper': the DSMC algorithm of Ref. 1, Appendix B (used for the published "
+        "results); 'gillespie': Gillespie's stochastic simulation algorithm with thinning, "
+        "which samples the same dynamics faster but is NOT the algorithm of the paper "
+        "(--alpha is ignored). Default: %(default)s",
+    )
 
     ring = sub.add_parser("rings", help="irreversible condensation with ring formation (Ref. 2)")
     _add_common(ring, ntot=1_000)
@@ -83,8 +92,11 @@ def run_fragmentation(args: argparse.Namespace) -> None:
         gamma=args.gamma,
         seed=args.seed,
     )
-    with FragmentationWriter(params, args.outdir) as writer:
-        result = fragmentation.simulate(
+    gillespie = args.method == "gillespie"
+    simulate = fragmentation_gillespie.simulate_gillespie if gillespie else fragmentation.simulate
+    suffix = "_gillespie" if gillespie else ""
+    with FragmentationWriter(params, args.outdir, suffix=suffix) as writer:
+        result = simulate(
             params,
             on_event=writer.on_event,
             on_snapshot=writer.on_snapshot,

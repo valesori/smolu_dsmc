@@ -31,12 +31,16 @@ class FragmentationWriter:
     - ``histograms_<tag>/n<step>_t<time>``: mass histograms (mass, count).
     - ``masses_final_<tag>_t<time>.dat``: final masses, padded with zeros to
       ``ntot`` entries as in the original scripts.
+
+    ``suffix`` is appended to ``<tag>``; the CLI uses ``_gillespie`` for runs of
+    :mod:`smolu_dsmc.fragmentation_gillespie`, so that they are not mistaken for
+    runs of the paper's DSMC algorithm.
     """
 
-    def __init__(self, params: FragmentationParams, outdir: Path | str = "."):
+    def __init__(self, params: FragmentationParams, outdir: Path | str = ".", suffix: str = ""):
         self.params = params
         self.outdir = Path(outdir)
-        tag = fragmentation_tag(params)
+        tag = fragmentation_tag(params) + suffix
         self.tag = tag
         self.hist_dir = self.outdir / f"histograms_{tag}"
         self.hist_dir.mkdir(parents=True, exist_ok=True)
