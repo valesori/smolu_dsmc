@@ -2,15 +2,49 @@
 
 ## [Unreleased]
 
+### Changed (breaking)
+
+- Entanglement: the variable x of the blocking factor is now computed from the
+  physical density, x = c₀a³ c̃ l_min²/2 with a the axial length per ULF, and
+  `--gamma` is the physical maximum misalignment angle. The 2022 code used
+  x = c̃ l_min²/2. Without further options, `--gamma 7e-6` therefore no longer
+  reproduces the fit of Ref. 1: use `--entanglement-x reduced`, or the
+  corresponding physical angle `--gamma 8.82e-3` (README, "Entanglement").
+  The density used elsewhere, K_d and the blocking function are unchanged.
+  Files of runs made with `--gamma` between the 2026 rewrite and this change
+  have no suffix but use the reduced x; their run record gives the commit.
+- `--method paper` is now `--method dsmc` (still the default).
+
+### Removed
+
+- The top-level wrappers `smoluchowski_dsmc_frag.py`,
+  `smoluchowski_dsmc_frag_entanglement.py` and `smoluchowski_dsmc_rings.py`.
+  They had the names of the 2022 scripts but ran the package, with other
+  inputs and random numbers. Use `smolu-dsmc frag` / `smolu-dsmc rings`
+  (`python -m smolu_dsmc ...`), or the 2022 scripts in `legacy_2022/`.
+
 ### Added
 
+- `legacy_2022/`: the three 2022 scripts (commit `fee1e58`) unchanged, with a
+  pinned environment (Python 3.11, NumPy 1.26.4; they fail with NumPy >= 2)
+  and a README. They reproduce the simulations of Ref. 1 exactly.
+  `tests/test_legacy_2022.py` checks that they stay identical to `fee1e58`;
+  `scripts/compare_legacy_2022.py` compares them with the package
+  statistically.
+- `--entanglement-x {physical,reduced}`, `--reference-density` and
+  `--axial-length` (Python: `FragmentationParams.entanglement_x`,
+  `reference_density`, `axial_length`); c₀ and a default to Ref. 1 (6.1 nM,
+  60 nm). `reduced` is the legacy convention of the 2022 code; its output
+  files carry a `_legacy` suffix. It reproduces the package at commit
+  706e7fe file for file (`tests/test_legacy_regression.py`,
+  `scripts/record_baseline.py`). Run records have an `entanglement` entry.
 - `smolu_dsmc.fragmentation_gillespie` and `smolu-dsmc frag --method gillespie`:
   Gillespie's stochastic simulation algorithm with thinning and
   composition-rejection sampling (references in the README), which samples
   the same dynamics as the DSMC of Ref. 1 but is **not the algorithm used for
   the published results**. It avoids most rejected attempts and is 6–14 times
   faster for `ntot = 1e5`. Output files carry a `_gillespie` suffix; the
-  default method is still the paper's DSMC.
+  default method is still the DSMC.
 - `--n-points` and `--t-min` (fragmentation): record the time series and the
   histograms at log-spaced times instead of after every event, which keeps
   output files small and makes histograms comparable between runs and
@@ -24,9 +58,8 @@
 
 ### Changed
 
-- README: the dimensionless units used by the code (c₀b³ = 1), how they map
-  onto Refs. 1 and 2, and how the `gamma` of the code relates to the bare
-  angle (γ_code = γ c₀b³; about 0.5° for the fit of Ref. 1).
+- README: the dimensionless units used by the code, how they map onto Refs. 1
+  and 2, and the two entanglement conventions.
 - Package docstring and description cover both algorithms and cite the
   published versions of Refs. 1 and 2.
 

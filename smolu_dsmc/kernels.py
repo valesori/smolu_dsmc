@@ -59,13 +59,26 @@ def _gamma_minus_sin(g: float) -> float:
     return g - math.sin(g)
 
 
-def entangled_kernel(i: int, j: int, density: float, gamma: float) -> float:
+def entanglement_variable(l_min: int, density: float, c0_a3: float) -> float:
+    """First argument of :func:`blocking_factor`, ``x = c0_a3 * density * l_min**2 / 2``.
+
+    ``l_min`` is the number of ULFs of the shorter filament and ``density`` the
+    reduced density c/c0 used by the rest of the simulation. ``c0_a3`` converts
+    it to the physical density in units of 1/a**3, with ``a`` the axial length
+    per ULF, so that ``x = c a**3 l_min**2 / 2`` (Ref. 1, Eq. 4 and App. D):
+
+    - physical x (default): ``c0_a3 = c0 * a**3`` (about 7.9e-4 for Ref. 1);
+    - reduced x (legacy convention, as in the 2022 code): ``c0_a3 = 1``.
+    """
+    return 0.5 * c0_a3 * density * l_min * l_min
+
+
+def entangled_kernel(i: int, j: int, density: float, gamma: float, c0_a3: float) -> float:
     """:func:`rouse_kernel` multiplied by the entanglement blocking factor.
 
-    ``x = density * l_min**2 / 2``, with ``l_min = min(i, j)`` (Ref. 1, Eq. 4).
+    ``x`` is :func:`entanglement_variable` with ``l_min = min(i, j)``.
     """
-    l_min = min(i, j)
-    x = 0.5 * density * l_min * l_min
+    x = entanglement_variable(min(i, j), density, c0_a3)
     return blocking_factor(x, gamma) * rouse_kernel(i, j)
 
 

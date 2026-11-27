@@ -16,6 +16,9 @@ def fragmentation_tag(params: FragmentationParams) -> str:
     tag = f"ntot{params.ntot}_Kd{params.kd:.2e}_density{params.density:.2e}"
     if params.gamma is not None:
         tag += f"_gamma{params.gamma:.2e}"
+        # Runs with the legacy (reduced-density) x are marked; the default is not.
+        if params.entanglement_x == "reduced":
+            tag += "_legacy"
     return tag
 
 
@@ -25,6 +28,10 @@ def rings_tag(params: RingsParams) -> str:
 
 class FragmentationWriter:
     """Writes the files of a fragmentation run into ``outdir``.
+
+    ``<tag>`` is ``ntot…_Kd…_density…``, followed for entangled runs by
+    ``_gamma…`` and, with the legacy convention ``entanglement_x = "reduced"``,
+    ``_legacy``.
 
     - ``mav_vs_t_<tag>_tmax<time_max>.dat``: the waiting time, the mean mass
       and the extent of reaction ``1 - n / ntot``, either after each event

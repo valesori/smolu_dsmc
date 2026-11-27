@@ -78,7 +78,7 @@ from collections.abc import Callable, Sequence
 import numpy as np
 
 from .fragmentation import FragmentationParams, FragmentationResult
-from .kernels import blocking_factor
+from .kernels import blocking_factor, entanglement_variable
 from .population import UniformStream
 from .recording import RecordCallback, TimeGrid
 
@@ -287,6 +287,7 @@ def simulate_gillespie(
 
     uniform = UniformStream(np.random.default_rng(params.seed))
     density, kd, gamma = params.density, params.kd, params.gamma
+    c0_a3 = params.entanglement_c0_a3
     # Annealing rate per unordered pair is K_ab / V, with V = ntot / density.
     anneal_prefactor = density / (ntot * kd)
 
@@ -323,7 +324,9 @@ def simulate_gillespie(
             ma, mb = pop.mass(a), pop.mass(b)
             if gamma is not None:
                 l_min = min(ma, mb)
-                if uniform() >= blocking_factor(0.5 * density * l_min * l_min, gamma):
+                if uniform() >= blocking_factor(
+                    entanglement_variable(l_min, density, c0_a3), gamma
+                ):
                     continue
             pop.set_mass(b, ma + mb)
             pop.remove(a)
@@ -336,7 +339,9 @@ def simulate_gillespie(
             m2 = mk - m1
             if gamma is not None:
                 l_min = min(m1, m2)
-                if uniform() >= blocking_factor(0.5 * density * l_min * l_min, gamma):
+                if uniform() >= blocking_factor(
+                    entanglement_variable(l_min, density, c0_a3), gamma
+                ):
                     continue
             pop.set_mass(pos, m1)
             pop.add(m2)

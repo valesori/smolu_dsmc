@@ -2,7 +2,8 @@
 
 Each run started from the command line writes ``run_<tag>.json`` next to its
 output files, with the model, the algorithm, all parameters (including the
-seed), the recording settings, the package version, the git commit of the code
+seed), the recording settings, for fragmentation runs how the entanglement
+variable is computed, the package version, the git commit of the code
 (and whether it had uncommitted changes), the Python and NumPy versions, the
 command line, start and end times, and the list of output files. The file is
 written when the run starts (``"status": "running"``) and updated when it
@@ -75,6 +76,7 @@ class RunRecord:
         params: Any,
         recording: dict[str, Any],
         argv: list[str] | None = None,
+        extra: dict[str, Any] | None = None,
     ):
         self.path = Path(path)
         self.data: dict[str, Any] = {
@@ -83,6 +85,7 @@ class RunRecord:
             "method": method,
             "parameters": dataclasses.asdict(params),
             "recording": recording,
+            **(extra or {}),
             "code": {
                 "package": "smolu-dsmc",
                 "version": package_version(),

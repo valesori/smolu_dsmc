@@ -32,7 +32,15 @@ METHODS = {"dsmc": simulate, "gillespie": simulate_gillespie}
 KINETICS_TIMES = [0.01, 0.1, 0.5, 2.0, 10.0, 50.0, 200.0]
 KINETICS_CASES = {
     "free": dict(ntot=3000, kd=1e-2, density=1.0, time_max=200.0),
-    "entangled": dict(ntot=3000, kd=1e-3, density=5.0, gamma=7e-6, time_max=200.0),
+    # The comparison reported in the README was made with the legacy x convention.
+    "entangled": dict(
+        ntot=3000,
+        kd=1e-3,
+        density=5.0,
+        gamma=7e-6,
+        entanglement_x="reduced",
+        time_max=200.0,
+    ),
 }
 KINETICS_FIRST_SEED = 1
 

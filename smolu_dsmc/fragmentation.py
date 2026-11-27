@@ -15,6 +15,7 @@ import math
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from functools import partial
+from typing import Any
 
 import numpy as np
 
@@ -24,18 +25,51 @@ from .recording import RecordCallback, TimeGrid
 
 Kernel = Callable[[int, int], float]
 
+AVOGADRO = 6.02214076e23  # 1/mol
+# Reference density c0 of Ref. 1: the lowest experimental vimentin concentration,
+# 0.01 mg/mL, i.e. 6.1 nM of ULFs (K_d = 1e-3 c0 = 1.0e-5 mg/mL = 6.1 pM, Ref. 1,
+# Sec. II.B), in ULFs per m^3 (about 3.67e18).
+REF1_REFERENCE_DENSITY = 6.1e-9 * 1e3 * AVOGADRO
+# Axial length per ULF in Ref. 1 (nominal ULF length), in m.
+REF1_ULF_AXIAL_LENGTH = 60e-9
+
+# Values of FragmentationParams.entanglement_x (see its docstring).
+ENTANGLEMENT_X = ("physical", "reduced")
+
 
 @dataclass(frozen=True)
 class FragmentationParams:
-    """Parameters of a simulation; the defaults are those of the original scripts."""
+    """Parameters of a simulation; the defaults are those of the original scripts.
+
+    With entanglement (``gamma`` not None), ``entanglement_x`` selects how the
+    variable ``x`` of the blocking factor is computed (see the README,
+    "Entanglement"):
+
+    - ``"physical"`` (default): from the physical density,
+      ``x = c0 a**3 * density * l_min**2 / 2``, and ``gamma`` is the physical
+      maximum misalignment angle, in rad. ``reference_density`` (c0, in m^-3)
+      and ``axial_length`` (a, axial length per ULF, in m) default to the
+      values of Ref. 1.
+    - ``"reduced"``: the legacy convention, from the reduced density,
+      ``x = density * l_min**2 / 2``, as in the 2022 code (``legacy_2022/``);
+      ``gamma`` is then the angle fitted in Ref. 1 (7e-6).
+      ``reference_density`` and ``axial_length`` must be left unset.
+
+    In both, ``density`` is the reduced density c/c0, used unchanged by the
+    rest of the simulation.
+    """
 
     ntot: int = 10_000  # Number of monomers (ULFs)
-    kd: float = 1.0e-3  # Equilibrium dissociation constant K_d
-    density: float = 1.0  # Monomer number density c
+    kd: float = 1.0e-3  # Equilibrium dissociation constant K_d, in units of c0
+    density: float = 1.0  # Reduced ULF number density c/c0
     alpha: float = 1.0  # Share of the time increment given to annealing, in [0, 1]
     time_max: float = 1.0e5  # Stop when the waiting time exceeds this value
-    gamma: float | None = None  # Max. annealing angle; None disables entanglement
+    gamma: float | None = None  # Max. annealing angle in rad; None disables entanglement
     seed: int | None = 123
+    entanglement_x: str = "physical"  # "physical" or "reduced" (legacy)
+    # entanglement_x == "physical" only; None selects the Ref. 1 values above.
+    reference_density: float | None = None  # c0, in m^-3
+    axial_length: float | None = None  # a, axial length per ULF, in m
 
     def __post_init__(self) -> None:
         if self.ntot < 2:
@@ -48,12 +82,72 @@ class FragmentationParams:
             raise ValueError("alpha must be in [0, 1].")
         if self.gamma is not None and not 0.0 < self.gamma <= math.pi / 2:
             raise ValueError("gamma must be in (0, pi/2].")
+        if self.entanglement_x not in ENTANGLEMENT_X:
+            raise ValueError(
+                f"entanglement_x must be one of {ENTANGLEMENT_X}, not {self.entanglement_x!r}."
+            )
+        physical = {"reference_density": self.reference_density, "axial_length": self.axial_length}
+        if self.gamma is not None and self.entanglement_x == "physical":
+            defaults = {
+                "reference_density": REF1_REFERENCE_DENSITY,
+                "axial_length": REF1_ULF_AXIAL_LENGTH,
+            }
+            for name, value in physical.items():
+                if value is None:
+                    object.__setattr__(self, name, defaults[name])
+                elif not value > 0:
+                    raise ValueError(f"{name} must be > 0.")
+        else:
+            given = [name for name, value in physical.items() if value is not None]
+            if given:
+                raise ValueError(
+                    f"{' and '.join(given)} only apply with gamma set and "
+                    "entanglement_x = 'physical'."
+                )
+
+    @property
+    def legacy_entanglement(self) -> bool:
+        """True for an entangled run with the legacy (reduced-density) x."""
+        return self.gamma is not None and self.entanglement_x == "reduced"
+
+    @property
+    def entanglement_c0_a3(self) -> float:
+        """Factor converting ``density`` into the density in ``x``: c0 a^3, or 1 (reduced)."""
+        if self.gamma is None or self.entanglement_x == "reduced":
+            return 1.0
+        return self.reference_density * self.axial_length**3
+
+    def entanglement_record(self) -> dict[str, Any] | None:
+        """Description of the entanglement variable, for the run record."""
+        if self.gamma is None:
+            return None
+        if self.entanglement_x == "reduced":
+            return {
+                "x": "reduced",
+                "x_formula": "density * l_min**2 / 2",
+                "gamma_rad": self.gamma,
+                "gamma_meaning": "fitted angle of the legacy convention (Ref. 1 fit: 7e-6)",
+            }
+        return {
+            "x": "physical",
+            "x_formula": "c0_a3 * density * l_min**2 / 2",
+            "gamma_rad": self.gamma,
+            "gamma_meaning": "physical maximum misalignment angle",
+            "reference_density_per_m3": self.reference_density,
+            "axial_length_m": self.axial_length,
+            "c0_a3": self.entanglement_c0_a3,
+        }
 
     @property
     def kernel(self) -> Kernel:
         if self.gamma is None:
             return rouse_kernel
-        return partial(entangled_kernel, density=self.density, gamma=self.gamma)
+        return partial(
+            entangled_kernel,
+            density=self.density,
+            gamma=self.gamma,
+            c0_a3=self.entanglement_c0_a3,
+        )
 
 
 @dataclass

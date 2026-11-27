@@ -52,9 +52,23 @@ def test_invalid_parameters():
 
 
 def test_cli_writes_original_file_names(tmp_path):
-    main(["frag", "--ntot", "200", "--time-max", "2", "--gamma", "7e-6", "--outdir", str(tmp_path)])
+    main(
+        [
+            "frag",
+            "--ntot",
+            "200",
+            "--time-max",
+            "2",
+            "--gamma",
+            "7e-6",
+            "--entanglement-x",
+            "reduced",
+            "--outdir",
+            str(tmp_path),
+        ]
+    )
     names = sorted(p.name for p in tmp_path.iterdir())
-    tag = "ntot200_Kd1.00e-03_density1.00e+00_gamma7.00e-06"
+    tag = "ntot200_Kd1.00e-03_density1.00e+00_gamma7.00e-06_legacy"
     assert f"histograms_{tag}" in names
     assert f"mav_vs_t_{tag}_tmax2.00e+00.dat" in names
     final = [n for n in names if n.startswith(f"masses_final_{tag}_t")]

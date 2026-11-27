@@ -30,7 +30,7 @@ def test_blocking_factor_decreases():
 def test_entangled_kernel_large_masses():
     # Masses whose squared minimum overflows int32 (the original used int32).
     m = 50_000
-    value = entangled_kernel(m, m + 1, density=1.0, gamma=7e-6)
+    value = entangled_kernel(m, m + 1, density=1.0, gamma=7e-6, c0_a3=1.0)
     expected = blocking_factor(0.5 * m * m, 7e-6) * rouse_kernel(m, m + 1)
     assert value == pytest.approx(expected)
     assert 0.0 < value < rouse_kernel(m, m + 1)

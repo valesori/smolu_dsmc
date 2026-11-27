@@ -53,7 +53,35 @@ def build_parser() -> argparse.ArgumentParser:
         "--gamma",
         type=float,
         default=None,
-        help="max. annealing angle in rad; enables the entanglement kernel (e.g. 7e-6)",
+        help="max. annealing angle in rad; enables the entanglement kernel. With "
+        "--entanglement-x physical (default) it is the physical maximum misalignment "
+        "angle (about 8.82e-3 for the fit of Ref. 1); with --entanglement-x reduced, the "
+        "angle fitted with the legacy convention (7e-6 in Ref. 1)",
+    )
+    frag.add_argument(
+        "--entanglement-x",
+        choices=list(fragmentation.ENTANGLEMENT_X),
+        default="physical",
+        help="how the entanglement variable x is computed. 'physical': from the physical "
+        "density, x = c0 a^3 (c/c0) l_min^2 / 2. 'reduced': legacy convention, from the "
+        "reduced density, x = (c/c0) l_min^2 / 2, as in the 2022 code used for Ref. 1; "
+        "output files get a '_legacy' suffix. It is statistically equivalent to, but does "
+        "not reproduce exactly, the 2022 code, which is kept in legacy_2022/ "
+        "(see the README). Default: %(default)s",
+    )
+    frag.add_argument(
+        "--reference-density",
+        type=float,
+        default=None,
+        help="--entanglement-x physical: reference density c0 (density 1), in ULFs per m^3 "
+        f"(default: Ref. 1, 6.1 nM = {fragmentation.REF1_REFERENCE_DENSITY:.4g})",
+    )
+    frag.add_argument(
+        "--axial-length",
+        type=float,
+        default=None,
+        help="--entanglement-x physical: axial length per ULF a, in m "
+        f"(default: Ref. 1, {fragmentation.REF1_ULF_AXIAL_LENGTH:g})",
     )
     frag.add_argument(
         "--hist-every",
@@ -79,12 +107,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     frag.add_argument(
         "--method",
-        choices=["paper", "gillespie"],
-        default="paper",
-        help="'paper': the DSMC algorithm of Ref. 1, Appendix B (used for the published "
-        "results); 'gillespie': Gillespie's stochastic simulation algorithm with thinning, "
-        "which samples the same dynamics faster but is NOT the algorithm of the paper "
-        "(--alpha is ignored). Default: %(default)s",
+        choices=["dsmc", "gillespie"],
+        default="dsmc",
+        help="'dsmc': the DSMC algorithm of Ref. 1, Appendix B (a faster implementation; "
+        "the exact 2022 code is in legacy_2022/); 'gillespie': Gillespie's stochastic "
+        "simulation algorithm with thinning, which samples the same dynamics faster but "
+        "is NOT the algorithm of the paper (--alpha is ignored). Default: %(default)s",
     )
 
     ring = sub.add_parser("rings", help="irreversible condensation with ring formation (Ref. 2)")
@@ -110,6 +138,9 @@ def run_fragmentation(args: argparse.Namespace) -> None:
         time_max=args.time_max,
         gamma=args.gamma,
         seed=args.seed,
+        entanglement_x=args.entanglement_x,
+        reference_density=args.reference_density,
+        axial_length=args.axial_length,
     )
     gillespie = args.method == "gillespie"
     simulate = fragmentation_gillespie.simulate_gillespie if gillespie else fragmentation.simulate
@@ -131,6 +162,7 @@ def run_fragmentation(args: argparse.Namespace) -> None:
         params=params,
         recording=recording,
         argv=args.command_line,
+        extra={"entanglement": params.entanglement_record()},
     )
     record.start()
     try:
