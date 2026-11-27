@@ -1,0 +1,11 @@
+# Environment for the 2022 scripts in this folder (see README.md).
+# They fail with NumPy >= 2. Versions tested on 2026-11-27 (macOS arm64):
+# Python 3.11.18, NumPy 1.26.4.
+#   conda env create -f legacy_2022/environment.yml
+#   conda activate smolu-dsmc-legacy-2022
+name: smolu-dsmc-legacy-2022
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy=1.26.4

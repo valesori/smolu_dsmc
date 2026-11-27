@@ -24,6 +24,9 @@ packages = ["smolu_dsmc"]
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+# The 2022 scripts are kept byte for byte (tests/test_legacy_2022.py).
+extend-exclude = ["legacy_2022"]
+force-exclude = true
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "NPY"]
